@@ -135,70 +135,6 @@ os.environ['ABLESCI_AUTH'] = 'your_email@example.com#your_password'
 | -1 | 响应错误或网络异常 |
 | 其他 | 登录失败或其他错误 |
 
-## ❓ 常见问题
-
-### Q: 脚本提示"缺少环境变量 ABLESCI_AUTH"
-**A:** 请确保已正确设置环境变量 `ABLESCI_AUTH`，格式为 `账号#密码`
-
-### Q: 提示"账号或密码不能为空"
-**A:** 检查环境变量格式，确保 `#` 前后都有账号和密码内容
-
-### Q: 登录失败，返回"响应不是 JSON"
-**A:** 可能是网络问题或科研通服务异常，请检查网络连接或稍后重试
-
-### Q: 可以同时配置多个账号吗？
-**A:** 当前版本只支持单个账号，如需多个账号可运行多个脚本实例
-
-### Q: 脚本是否支持代理？
-**A:** 当前版本不支持代理，如需代理可修改源代码的 `build_opener` 部分
-
-### Q: 如何设置每天特定时间签到？
-**A:** 使用 cron（Linux/macOS）或任务计划程序（Windows）配合脚本运行。例如：
-```bash
-# 每天上午8点执行
-0 8 * * * /usr/bin/python3 /path/to/科研通签到.py
-```
-
-## 🔄 脚本工作流程
-
-```
-1. 验证环境变量 ABLESCI_AUTH
-   ↓
-2. 可选的随机延迟（25% 概率延迟 60-180 秒）
-   ↓
-3. 解析账号和密码
-   ↓
-4. 获取登录页面，提取 CSRF token
-   ↓
-5. 使用账号密码提交登录请求
-   ↓
-6. 检查登录是否成功
-   ↓
-7. 发送签到请求
-   ↓
-8. 记录签到结果和日志
-   ↓
-9. 发送青龙通知（如果环境支持）
-```
-
-## 🔒 安全提示
-
-- ⚠️ **不要**将账号密码硬编码在脚本中
-- ⚠️ **不要**在公开场合泄露环境变量内容
-- ⚠️ 建议使用**项目专用账号**而非主账号
-- ⚠️ 定期检查日志中是否有异常登录信息
-- ✅ 环境变量会通过标准库安全处理
-- ✅ 本脚本不会存储密码，每次执行时通过环境变量读取
-
-## 🌐 支持的浏览器 User-Agent
-
-脚本内置了多个浏览器的 User-Agent，每次请求会随机选择，以提高隐蔽性：
-
-- Chrome (Windows 10, x64)
-- Safari (macOS)
-- Safari (iOS)
-- Chrome (Android)
-
 ## 📢 通知功能
 
 脚本支持与青龙脚本框架集成，在以下场景发送通知：
@@ -208,39 +144,9 @@ os.environ['ABLESCI_AUTH'] = 'your_email@example.com#your_password'
 - ❌ 登录失败
 - ❌ 网络异常或其他错误
 
-## 📄 许可证
-
-MIT License
-
-## 👨‍💻 作者
-
-- **cjy** - 原始作者
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-如果你发现了 Bug 或有功能建议，请通过以下方式反馈：
-- 提交 [Issue](https://github.com/wqe134/keyantong_autosign/issues)
-- 提交 [Pull Request](https://github.com/wqe134/keyantong_autosign/pulls)
-
-## 📋 更新日志
-
-### v1.0 (2026-06-02)
-- ✨ 初始版本发布
-- ✨ 支持自动登录和签到
-- ✨ 集成青龙脚本框架通知
-- ✨ 详细的日志记录
-- ✨ 完整的 README 文档
 
 ## 🔗 相关链接
 
 - [科研通官网](https://www.ablesci.com/)
 - [青龙脚本框架](https://github.com/whyour/qinglong)
-- [Python 官方网站](https://www.python.org/)
 
----
-
-**最后更新：** 2026-06-02  
-**维护状态：** 🟢 活跃中  
-**开源协议：** MIT License
