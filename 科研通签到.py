@@ -57,6 +57,39 @@ def json_from_response(raw: str) -> dict:
         return {"code": -1, "msg": "响应不是 JSON", "raw": raw[:300]}
 
 
+
+def extract_user_points(html: str) -> str:
+    """Extract current points from AbleSci home HTML."""
+    patterns = [
+        r'id=["\']user-point-now["\'][^>]*>\s*([^<\s]+)\s*<',
+        r'<[^>]+id=["\']user-point-now["\'][^>]*>\s*([^<]+?)\s*</[^>]+>',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html, re.I | re.S)
+        if match:
+            return re.sub(r"\s+", "", match.group(1))
+    return ""
+
+
+def fetch_user_points(opener) -> str:
+    """Fetch current points from home page with logged-in opener."""
+    home_req = Request("https://www.ablesci.com/", headers=build_headers())
+    with opener.open(home_req, timeout=15) as resp:
+        home_html = resp.read().decode("utf-8", errors="replace")
+    return extract_user_points(home_html)
+
+
+def format_points_delta(points_before: str, points_after: str) -> str:
+    """Format points delta between before and after sign-in."""
+    if not points_before or not points_after:
+        return ""
+    try:
+        delta = int(points_after) - int(points_before)
+    except ValueError:
+        return ""
+    return f"{delta:+d}"
+
+
 def extract_csrf(html: str) -> str:
     patterns = [
         r'<meta name="csrf-token" content="([^"]+)"',
@@ -100,12 +133,28 @@ def login_and_sign(email: str, password: str) -> dict:
     if login_result.get("code") != 0:
         return login_result
 
+    try:
+        points_before = fetch_user_points(opener)
+    except Exception:
+        points_before = ""
+
     time.sleep(random.uniform(0.8, 1.8))
 
     sign_req = Request("https://www.ablesci.com/user/sign", headers=build_headers())
     with opener.open(sign_req, timeout=15) as resp:
         sign_raw = resp.read().decode("utf-8", errors="replace")
-    return json_from_response(sign_raw)
+
+    sign_result = json_from_response(sign_raw)
+
+    try:
+        points_after = fetch_user_points(opener)
+    except Exception:
+        points_after = ""
+
+    sign_result["points_before"] = points_before
+    sign_result["points_after"] = points_after
+    sign_result["points_delta"] = format_points_delta(points_before, points_after)
+    return sign_result
 
 
 def extract_sign_time(msg: str) -> str:
@@ -120,16 +169,48 @@ def extract_sign_time(msg: str) -> str:
     return ""
 
 
+def format_result_status(result: dict) -> str:
+    msg = str(result.get("msg", ""))
+    code = result.get("code")
+    if code == 0:
+        return "签到成功"
+    if "已于" in msg and "签到" in msg:
+        return "今日已签到"
+    return "签到失败"
+
+
 def format_message(timestamp: str, email: str, result: dict) -> str:
     msg = str(result.get("msg", ""))
     sign_time = extract_sign_time(msg) or timestamp.split(" ", 1)[-1]
-    return "\n".join(
-        [
-            f"账号: {email}",
-            "结果: 签到成功",
-            f"签到时间: [{sign_time}]",
-        ]
-    )
+    lines = [
+        f"账号: {email}",
+        f"结果: {format_result_status(result)}",
+        f"签到时间: [{sign_time}]",
+    ]
+    points_before = result.get("points_before")
+    points_after = result.get("points_after")
+    points_delta = result.get("points_delta") or format_points_delta(str(points_before or ""), str(points_after or ""))
+    if points_before:
+        lines.append(f"签到前积分: {points_before}")
+    if points_after:
+        lines.append(f"签到后积分: {points_after}")
+    if points_delta:
+        lines.append(f"积分变化: {points_delta}")
+    return "\n".join(lines)
+
+
+def format_log_line(timestamp: str, result: dict) -> str:
+    line = f"[{timestamp}] code={result.get('code', -1)} msg={result.get('msg', '无消息')}"
+    points_before = result.get("points_before")
+    points_after = result.get("points_after")
+    points_delta = result.get("points_delta") or format_points_delta(str(points_before or ""), str(points_after or ""))
+    if points_before:
+        line += f" 签到前积分={points_before}"
+    if points_after:
+        line += f" 签到后积分={points_after}"
+    if points_delta:
+        line += f" 积分变化={points_delta}"
+    return line
 
 
 def load_qinglong_sender():
@@ -197,7 +278,7 @@ def main():
     try:
         email, password = read_auth(auth)
         result = login_and_sign(email, password)
-        line = f"[{timestamp}] code={result.get('code', -1)} msg={result.get('msg', '无消息')}"
+        line = format_log_line(timestamp, result)
         print(line)
         write_log(line)
         send_qinglong_notification(NOTIFY_TITLE, format_message(timestamp, email, result))
